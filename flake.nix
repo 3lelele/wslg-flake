@@ -15,7 +15,6 @@
       packages = forAllSystems (system:
         let pkgs = import nixpkgs { inherit system; };
 
-        wsland-lib = wsland.packages.${system}.default;
         wslg-freerdp-lib = wslg-freerdp.packages.${system}.default;
       in {
           wslg-applist = pkgs.stdenv.mkDerivation {
@@ -40,7 +39,7 @@
           ];
 
           buildInputs = with pkgs; [
-            wsland-lib libcap
+            wsland.packages.${system}.default libcap
           ];
         };
       });
@@ -48,7 +47,6 @@
       devShells = forAllSystems (system:
         let pkgs = import nixpkgs { inherit system; };
 
-        wsland-lib = wsland.packages.${system}.default;
         wslg-freerdp-lib = wslg-freerdp.packages.${system}.default;
       in {
           wslg-applist = pkgs.mkShell {
@@ -60,7 +58,7 @@
           default = pkgs.mkShell {
             packages = with pkgs; [
               pkg-config meson ninja
-              wsland-lib libcap
+              wsland.packages.${system}.default libcap
             ];
           };
         });
