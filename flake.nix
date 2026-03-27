@@ -4,11 +4,10 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
-    wsland.url = "github:qq1038765585/wsland/working";
     wslg-freerdp.url = "github:qq1038765585/freerdp-flake/working";
   };
 
-  outputs = { self, nixpkgs, wsland, wslg-freerdp }:
+  outputs = { self, nixpkgs, wslg-freerdp }:
     let
       forAllSystems = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];
     in {
@@ -39,7 +38,7 @@
           ];
 
           buildInputs = with pkgs; [
-            wsland.packages.${system}.default libcap
+
           ];
         };
       });
@@ -58,7 +57,6 @@
           default = pkgs.mkShell {
             packages = with pkgs; [
               pkg-config meson ninja
-              wsland.packages.${system}.default libcap
             ];
           };
         });
