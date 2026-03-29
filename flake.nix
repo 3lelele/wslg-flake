@@ -29,7 +29,7 @@
           ];
 
           postInstall = ''
-            cp $out/lib/rdpapplist/librdpapplist-server.so $out/lib/
+            ln -s $out/lib/rdpapplist/librdpapplist-server.so $out/lib/librdpapplist-server.so
           '';
         };
 
