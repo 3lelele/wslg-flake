@@ -36,7 +36,8 @@ jobs:
 
           git clone --depth 1 --branch working https://github.com/microsoft/FreeRDP-mirror vendor/FreeRDP
           git clone --depth 1 --branch working https://github.com/microsoft/weston-mirror.git vendor/weston
-          git clone --depth 1 --branch working https://github.com/microsoft/pulseaudio-mirror.git vendor/pulseaudio
+          git clone --branch working https://github.com/microsoft/pulseaudio-mirror.git vendor/pulseaudio
+          git -C vendor/pulseaudio fetch --tags --force
           git clone --depth 1 --branch "${WSLAND_REF}" "${WSLAND_REPO}" vendor/wsland
 
           wget -nv https://azurelinuxsrcstorage.blob.core.windows.net/sources/core/mesa-23.1.0.tar.xz
