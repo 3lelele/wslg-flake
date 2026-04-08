@@ -315,7 +315,8 @@ try {
     THROW_LAST_ERROR_IF(chmod(c_dbusDir, 0777) < 0);
 
     std::filesystem::create_directories(c_x11RuntimeDir);
-    THROW_LAST_ERROR_IF(chmod(c_x11RuntimeDir, 0777) < 0);
+    // Xwayland requires a sticky world-writable socket directory.
+    THROW_LAST_ERROR_IF(chmod(c_x11RuntimeDir, 01777) < 0);
 
     std::filesystem::create_directories(c_xdgRuntimeDir);
     THROW_LAST_ERROR_IF(chown(c_xdgRuntimeDir, passwordEntry->pw_uid, passwordEntry->pw_gid) < 0);
