@@ -38,6 +38,7 @@ constexpr auto c_windowsSystem32 = "/mnt/c/Windows/System32";
 
 constexpr auto c_westonShellDesktopEnv = "WSL2_WESTON_SHELL_DESKTOP";
 constexpr auto c_useWslandEnv = "WSLG_USE_WSLAND";
+constexpr auto c_customBuildMarker = "wslg-flake custom build 2026-04-09";
 
 constexpr auto c_westonRdprailShell = "rdprail-shell";
 constexpr auto c_westonRdpdesktopShell = "desktop-shell";
@@ -249,6 +250,12 @@ try {
     }
 
     SetupOptionalEnv();
+    LOG_INFO("Custom build marker: %s", c_customBuildMarker);
+    if (const char* useWslandValue = getenv(c_useWslandEnv)) {
+        LOG_INFO("%s=%s", c_useWslandEnv, useWslandValue);
+    } else {
+        LOG_INFO("%s is not set", c_useWslandEnv);
+    }
 
     // if any components output log to /dev/kmsg, make it writable.
     if (GetEnvBool("WSLG_LOG_KMSG", false))
@@ -414,10 +421,10 @@ try {
 
     std::string compositorArgs;
     if (isUseWsland) {
-        LOG_INFO("Launching wsland compositor.");
+        LOG_INFO("Launching wsland compositor (%s).", c_customBuildMarker);
         compositorArgs = "/usr/bin/wsland";
     } else {
-        LOG_INFO("Launching weston compositor.");
+        LOG_INFO("Launching weston compositor (%s).", c_customBuildMarker);
         char *gdbServerPort = getenv("WSLG_WESTON_GDBSERVER_PORT");
         if ((access(GDBSERVER_PATH, X_OK) == 0) && IsNumeric(gdbServerPort)) {
             compositorArgs += GDBSERVER_PATH;
