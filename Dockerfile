@@ -8,6 +8,16 @@ RUN echo "== Install Git/CA certificates ==" && \
         git \
         ca-certificates
 
+RUN printf '%s\n' \
+    '[azurelinux3.0prodextendedx86_64]' \
+    'name=azurelinux/3.0/prod/extended/x86_64' \
+    'baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/' \
+    'gpgcheck=1' \
+    'repo_gpgcheck=1' \
+    'enabled=1' \
+    'gpgkey=https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/repodata/repomd.xml.key' \
+    > /etc/yum.repos.d/azurelinux-extended.repo
+
 RUN echo "== Install Core dependencies ==" && \
     tdnf install -y \
         alsa-lib \
