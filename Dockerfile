@@ -297,7 +297,11 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
 # Build wsland
 COPY vendor/wsland /work/vendor/wsland
 WORKDIR /work/vendor/wsland
-RUN /usr/bin/meson --prefix=${PREFIX} build \
+RUN sed -i \
+        -e "s/version : '>=1.11.0'/version : '>=1.6.0'/" \
+        -e "s/version : '>=1.17.0'/version : '>=1.16.0'/" \
+        meson.build && \
+    /usr/bin/meson --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE} && \
     ninja -C build -j8 install && \
     echo 'wsland: local-source' >> /work/versions.txt
