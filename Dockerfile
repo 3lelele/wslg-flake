@@ -366,7 +366,6 @@ RUN echo "== Install Core/UI Runtime Dependencies ==" && \
             tar \
             tzdata \
             util-linux \
-            xcb-util-wm \
             xcursor-themes \
             xorg-x11-server-Xwayland \
             xorg-x11-server-utils
@@ -439,6 +438,11 @@ COPY resources/linux.png /usr/share/icons/wsl/linux.png
 # Copy the built artifacts from the build stage.
 COPY --from=dev /work/build/usr/ /usr/
 COPY --from=dev /work/build/etc/ /etc/
+
+# wlroots Xwayland support links against libxcb-ewmh, which is available in
+# the build image via xcb-util-wm-devel but not as a directly installable
+# runtime package in the Azure Linux core image.
+COPY --from=dev /usr/lib64/libxcb-ewmh.so* /usr/lib64/
 
 # Append WSLg setttings to pulseaudio.
 COPY config/default_wslg.pa /etc/pulse/default_wslg.pa
