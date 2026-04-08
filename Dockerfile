@@ -299,6 +299,7 @@ COPY vendor/wsland /work/vendor/wsland
 WORKDIR /work/vendor/wsland
 RUN sed -i \
         -e "s/version : '>=1.11.0'/version : '>=1.6.0'/" \
+        -e "s/version : '>=0.46.4'/version : '>=0.43.2'/" \
         -e "s/version : '>=1.17.0'/version : '>=1.16.0'/" \
         meson.build && \
     /usr/bin/meson --prefix=${PREFIX} build \
