@@ -1,0 +1,186 @@
+# Build And Runtime Notes
+
+## Important Code Changes Already Made
+
+### In `wsland`
+
+Files changed:
+
+- [meson.build](/home/storm/Downloads/wsland/meson.build)
+- [include/wsland/utils/config.h](/home/storm/Downloads/wsland/include/wsland/utils/config.h)
+- [src/utils/config.c](/home/storm/Downloads/wsland/src/utils/config.c)
+- [src/server/server.c](/home/storm/Downloads/wsland/src/server/server.c)
+
+What changed:
+
+1. `wsland` is installed by Meson with `install: true`
+2. `wsland` accepts a fixed `WAYLAND_DISPLAY` name from env instead of always auto-allocating
+3. `wsland` accepts `WSLGD_NOTIFY_SOCKET` and sends a ready notification to `WSLGd`
+
+Why this matters:
+
+- WSLg expects a stable socket like `wayland-0`
+- `WSLGd` waits for compositor readiness before continuing
+
+### In `wslg-flake`
+
+Files changed:
+
+- [WSLGd/main.cpp](/home/storm/Downloads/wslg-flake/WSLGd/main.cpp)
+- [Dockerfile](/home/storm/Downloads/wslg-flake/Dockerfile)
+- [.dockerignore](/home/storm/Downloads/wslg-flake/.dockerignore)
+- [.github/workflows/build-system-distro.yml](/home/storm/Downloads/wslg-flake/.github/workflows/build-system-distro.yml)
+
+What changed:
+
+1. `WSLGd` supports `WSLG_USE_WSLAND=1`
+2. When enabled, `WSLGd` launches `/usr/bin/wsland` instead of `/usr/bin/weston`
+3. The Docker build builds `vendor/wsland`
+4. `rdpapplist` installs a compatibility symlink for `librdpapplist-server.so`
+5. `.dockerignore` ignores only the root `.git`, not all nested `.git`
+6. GitHub Actions can build `system_x64.vhd` remotely
+
+## GitHub Actions Workflow
+
+Workflow file:
+
+- [.github/workflows/build-system-distro.yml](/home/storm/Downloads/wslg-flake/.github/workflows/build-system-distro.yml)
+
+What it does:
+
+1. Checks out `wslg-flake`
+2. Clones:
+   `microsoft/FreeRDP-mirror` branch `working`
+   `microsoft/weston-mirror` branch `working`
+   `microsoft/pulseaudio-mirror` branch `working`
+   `https://github.com/3lelele/wsland.git` using input ref or default `master`
+3. Downloads Mesa and DirectX-Headers source archives
+4. Builds Docker image
+5. Exports `system_x64.tar`
+6. Converts tar to `system_x64.vhd`
+7. Uploads both artifacts
+
+## Confirmed Build Failures And Fixes
+
+### Failure 1: `pulseaudio` Meson version parsing crash
+
+Symptom:
+
+`meson.build:17:33: ERROR: Index 1 out of bounds of array of size 1.`
+
+Cause:
+
+The workflow used a shallow clone for `pulseaudio`, but `git-version-gen` in `meson.build` required fuller Git metadata.
+
+Fix:
+
+```sh
+git clone --branch working https://github.com/microsoft/pulseaudio-mirror.git vendor/pulseaudio
+git -C vendor/pulseaudio fetch --tags --force
+```
+
+### Failure 2: Weston link error for `-lrdpapplist-server`
+
+Symptom:
+
+`/usr/bin/ld: cannot find -lrdpapplist-server`
+
+Cause:
+
+`rdpapplist` installs:
+
+`/usr/lib/rdpapplist/librdpapplist-server.so`
+
+but Weston links against:
+
+`-lrdpapplist-server`
+
+Fix:
+
+Create a compatibility symlink in `/usr/lib`.
+
+### Failure 3: Docker build context dropped vendor `.git`
+
+Symptom:
+
+Git-based version logic inside Docker failed because nested `.git` directories from `vendor/*` were missing.
+
+Cause:
+
+`.dockerignore` used a broad `.git` rule that also removed nested Git metadata.
+
+Fix:
+
+`.dockerignore` now ignores only top-level Git metadata.
+
+### Failure 4: `wsland` runtime failed to load `librdpapplist-server.so`
+
+Symptom:
+
+`/usr/bin/wsland: error while loading shared libraries: librdpapplist-server.so: cannot open shared object file: No such file or directory`
+
+Cause:
+
+The symlink inside the built system distro pointed at the build-time absolute path:
+
+`/work/build/usr/lib/rdpapplist/librdpapplist-server.so`
+
+instead of a runtime-valid path under `/usr/lib`.
+
+Fix:
+
+In [Dockerfile](/home/storm/Downloads/wslg-flake/Dockerfile), create the symlink as:
+
+```sh
+ln -sf rdpapplist/librdpapplist-server.so ${DESTDIR}${PREFIX}/lib/librdpapplist-server.so
+```
+
+This becomes a runtime-valid relative symlink after installation.
+
+## How To Use The Generated `system_x64.vhd`
+
+After GitHub Actions successfully builds and you download `system_x64.vhd`:
+
+1. Place it somewhere on Windows, for example:
+   `C:\WSL\system_x64.vhd`
+2. Put this in `%USERPROFILE%\.wslconfig`:
+
+```ini
+[wsl2]
+systemDistro=C:\\WSL\\system_x64.vhd
+```
+
+3. Ensure `%USERPROFILE%\.wslgconfig` contains:
+
+```ini
+[system-distro-env]
+WSLG_USE_WSLAND=1
+```
+
+4. Run from Windows:
+
+```powershell
+wsl --shutdown
+```
+
+5. Re-enter the WSL distro
+
+At that point WSL should boot using the custom system distro and try to launch `wsland`.
+
+## Recommended Validation Order
+
+If CI build fails again:
+
+1. Fix CI until `system_x64.vhd` artifact is produced
+2. Boot the custom system distro
+3. Confirm `WSLGd` launches `wsland`
+4. Confirm Wayland and XWayland apps start
+5. Only then continue IME protocol work in `wsland`
+
+If boot succeeds but apps fail:
+
+1. Inspect:
+   `/mnt/wslg/stderr.log`
+   `/mnt/wslg/weston.log`
+2. Check whether `WAYLAND_DISPLAY=wayland-0` is visible in the user distro
+3. Check whether `wsland` sent ready notify and accepted RDP/vsock connections
