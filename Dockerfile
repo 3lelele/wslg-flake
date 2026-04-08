@@ -455,10 +455,11 @@ COPY resources/linux.png /usr/share/icons/wsl/linux.png
 COPY --from=dev /work/build/usr/ /usr/
 COPY --from=dev /work/build/etc/ /etc/
 
-# wlroots Xwayland support links against libxcb-ewmh, which is available in
-# the build image via xcb-util-wm-devel but not as a directly installable
-# runtime package in the Azure Linux core image.
+# wlroots Xwayland support links against libxcb-ewmh and libxcb-icccm, which
+# are available in the build image via xcb-util-wm-devel but not as directly
+# installable runtime packages in the Azure Linux core image.
 COPY --from=dev /usr/lib64/libxcb-ewmh.so* /usr/lib64/
+COPY --from=dev /usr/lib64/libxcb-icccm.so* /usr/lib64/
 
 # Append WSLg setttings to pulseaudio.
 COPY config/default_wslg.pa /etc/pulse/default_wslg.pa
