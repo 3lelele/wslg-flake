@@ -9,7 +9,7 @@
 #define MSRDC_EXE "msrdc.exe"
 #define MSTSC_EXE "mstsc.exe"
 #define GDBSERVER_PATH "/usr/bin/gdbserver"
-#define WESTON_NOTIFY_SOCKET SHARE_PATH "/weston-notify.sock"
+#define COMPOSITOR_NOTIFY_SOCKET SHARE_PATH "/weston-notify.sock"
 #define DEFAULT_ICON_PATH "/usr/share/icons"
 #define USER_DISTRO_ICON_PATH USER_DISTRO_MOUNT_PATH DEFAULT_ICON_PATH
 #define MAX_RESERVED_PORT 1024
@@ -37,6 +37,7 @@ constexpr auto c_systemDistroEnvSection = "system-distro-env";
 constexpr auto c_windowsSystem32 = "/mnt/c/Windows/System32";
 
 constexpr auto c_westonShellDesktopEnv = "WSL2_WESTON_SHELL_DESKTOP";
+constexpr auto c_useWslandEnv = "WSLG_USE_WSLAND";
 
 constexpr auto c_westonRdprailShell = "rdprail-shell";
 constexpr auto c_westonRdpdesktopShell = "desktop-shell";
@@ -402,54 +403,81 @@ try {
     }
 
     // Setup notify for wslgd-notify.so
-    wil::unique_fd notifyFd(SetupReadyNotify(WESTON_NOTIFY_SOCKET));
+    wil::unique_fd notifyFd(SetupReadyNotify(COMPOSITOR_NOTIFY_SOCKET));
     THROW_LAST_ERROR_IF(!notifyFd);
 
-    // Construct weston option string.
-    std::string westonArgs;
-    char *gdbServerPort = getenv("WSLG_WESTON_GDBSERVER_PORT");
-    if ((access(GDBSERVER_PATH, X_OK) == 0) && IsNumeric(gdbServerPort)) {
-        westonArgs += GDBSERVER_PATH;
-        westonArgs += " :";
-        westonArgs += gdbServerPort;
-        westonArgs += " ";
+    bool isUseWsland = GetEnvBool(c_useWslandEnv, false);
+    if (isUseWsland && isRdpDesktopShell) {
+        LOG_INFO("Ignoring %s because wsland only supports integrated window remoting.", c_westonShellDesktopEnv);
+        isRdpDesktopShell = false;
     }
-    westonArgs += "/usr/bin/weston ";
-    westonArgs += "--backend=rdp-backend.so --modules=wslgd-notify.so --xwayland ";
-    westonArgs += westonSocketOption;
-    westonArgs += " ";
-    westonArgs += westonShellOption;
-    westonArgs += " ";
-    westonArgs += westonLogFileOption;
-    westonArgs += " ";
-    westonArgs += westonLoggerOption;
 
-    // Launch weston.
+    std::string compositorArgs;
+    if (isUseWsland) {
+        LOG_INFO("Launching wsland compositor.");
+        compositorArgs = "/usr/bin/wsland";
+    } else {
+        LOG_INFO("Launching weston compositor.");
+        char *gdbServerPort = getenv("WSLG_WESTON_GDBSERVER_PORT");
+        if ((access(GDBSERVER_PATH, X_OK) == 0) && IsNumeric(gdbServerPort)) {
+            compositorArgs += GDBSERVER_PATH;
+            compositorArgs += " :";
+            compositorArgs += gdbServerPort;
+            compositorArgs += " ";
+        }
+        compositorArgs += "/usr/bin/weston ";
+        compositorArgs += "--backend=rdp-backend.so --modules=wslgd-notify.so --xwayland ";
+        compositorArgs += westonSocketOption;
+        compositorArgs += " ";
+        compositorArgs += westonShellOption;
+        compositorArgs += " ";
+        compositorArgs += westonLogFileOption;
+        compositorArgs += " ";
+        compositorArgs += westonLoggerOption;
+    }
+
+    std::vector<std::string> compositorEnv{
+        std::move(socketEnvString),
+        std::move(serviceIdEnvString),
+        "WSLGD_NOTIFY_SOCKET=" COMPOSITOR_NOTIFY_SOCKET
+    };
+    if (auto wlogAppender = getenv("WLOG_APPENDER")) {
+        compositorEnv.emplace_back(std::string("WLOG_APPENDER=") + wlogAppender);
+    } else {
+        compositorEnv.emplace_back("WLOG_APPENDER=file");
+    }
+    if (auto wlogFileName = getenv("WLOG_FILEAPPENDER_OUTPUT_FILE_NAME")) {
+        compositorEnv.emplace_back(std::string("WLOG_FILEAPPENDER_OUTPUT_FILE_NAME=") + wlogFileName);
+    } else {
+        compositorEnv.emplace_back("WLOG_FILEAPPENDER_OUTPUT_FILE_NAME=wlog.log");
+    }
+    if (auto wlogFilePath = getenv("WLOG_FILEAPPENDER_OUTPUT_FILE_PATH")) {
+        compositorEnv.emplace_back(std::string("WLOG_FILEAPPENDER_OUTPUT_FILE_PATH=") + wlogFilePath);
+    } else {
+        compositorEnv.emplace_back("WLOG_FILEAPPENDER_OUTPUT_FILE_PATH=" SHARE_PATH);
+    }
+    if (!isUseWsland) {
+        compositorEnv.emplace_back("WESTON_DISABLE_ABSTRACT_FD=1");
+    }
+
+    // Launch compositor.
     // N.B. Additional capabilities are needed to setns to the mount namespace of the user distro.
     monitor.LaunchProcess(std::vector<std::string>{
                 "/usr/bin/sh",
                 "-c",
-                std::move(westonArgs)
+                std::move(compositorArgs)
             },
             std::vector<cap_value_t>{
                 CAP_SYS_ADMIN,
                 CAP_SYS_CHROOT,
                 CAP_SYS_PTRACE
             },
-            std::vector<std::string>{
-                std::move(socketEnvString),
-                std::move(serviceIdEnvString),
-                "WSLGD_NOTIFY_SOCKET=" WESTON_NOTIFY_SOCKET,
-                "WESTON_DISABLE_ABSTRACT_FD=1",
-                getenv("WLOG_APPENDER") ? : "", "WLOG_APPENDER=file",
-                getenv("WLOG_FILEAPPENDER_OUTPUT_FILE_NAME") ? "" : "WLOG_FILEAPPENDER_OUTPUT_FILE_NAME=wlog.log",
-                getenv("WLOG_FILEAPPENDER_OUTPUT_FILE_PATH") ? "" : "WLOG_FILEAPPENDER_OUTPUT_FILE_PATH=" SHARE_PATH
-            }
+            std::move(compositorEnv)
         );
 
-    // Wait weston to be ready before starting RDP client, pulseaudio server.
+    // Wait compositor to be ready before starting RDP client, pulseaudio server.
     WaitForReadyNotify(notifyFd.get());
-    unlink(WESTON_NOTIFY_SOCKET);
+    unlink(COMPOSITOR_NOTIFY_SOCKET);
 
     // Start font monitoring if user distro's X11 fonts to be shared with system distro.
     if (GetEnvBool("WSLG_USE_USER_DISTRO_XFONTS", true))

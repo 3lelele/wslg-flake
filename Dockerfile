@@ -282,6 +282,14 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
         /work/debuginfo/gen_debuginfo.sh /work/debuginfo/weston.list /work/build; \
     fi
 
+# Build wsland
+COPY vendor/wsland /work/vendor/wsland
+WORKDIR /work/vendor/wsland
+RUN /usr/bin/meson --prefix=${PREFIX} build \
+        --buildtype=${BUILDTYPE} && \
+    ninja -C build -j8 install && \
+    echo 'wsland: local-source' >> /work/versions.txt
+
 # Build WSLGd Daemon
 ENV CC=/usr/bin/clang
 ENV CXX=/usr/bin/clang++
