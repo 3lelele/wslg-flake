@@ -115,6 +115,7 @@ RUN echo "== Install UI dependencies ==" && \
             libXxf86vm-devel \
             wayland-devel \
             wayland-protocols-devel \
+            xcb-util-wm-devel \
             xkbcomp \
             xkeyboard-config \
             xorg-x11-server-Xwayland-devel \
@@ -365,6 +366,7 @@ RUN echo "== Install Core/UI Runtime Dependencies ==" && \
             tar \
             tzdata \
             util-linux \
+            xcb-util-wm \
             xcursor-themes \
             xorg-x11-server-Xwayland \
             xorg-x11-server-utils
