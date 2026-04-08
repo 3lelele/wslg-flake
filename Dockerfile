@@ -249,7 +249,7 @@ WORKDIR /work/rdpapplist
 RUN /usr/bin/meson --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE} && \
     ninja -C build -j8 install && \
-    ln -sf ${DESTDIR}${PREFIX}/lib/rdpapplist/librdpapplist-server.so ${DESTDIR}${PREFIX}/lib/librdpapplist-server.so
+    ln -sf rdpapplist/librdpapplist-server.so ${DESTDIR}${PREFIX}/lib/librdpapplist-server.so
 
 WORKDIR /work/debuginfo
 RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
