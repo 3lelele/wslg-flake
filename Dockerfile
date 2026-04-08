@@ -298,9 +298,10 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
 COPY vendor/wsland /work/vendor/wsland
 WORKDIR /work/vendor/wsland
 RUN sed -i \
-        -e "s/version : '>=1.11.0'/version : '>=1.6.0'/" \
-        -e "s/version : '>=0.46.4'/version : '>=0.43.2'/" \
-        -e "s/version : '>=1.17.0'/version : '>=1.16.0'/" \
+        -e "s/dep_xkbcommon = dependency('xkbcommon', version : '>=1.11.0')/dep_xkbcommon = dependency('xkbcommon', version : '>=1.6.0')/" \
+        -e "s/dep_pixman = dependency('pixman-1', version : '>=0.46.4')/dep_pixman = dependency('pixman-1', version : '>=0.43.2')/" \
+        -e "s/dep_xcb = dependency('xcb', version : '>=1.17.0')/dep_xcb = dependency('xcb', version : '>=1.16')/" \
+        -e "s/dep_xwayland = dependency('xwayland', version : '>=1.17.0')/dep_xwayland = dependency('xwayland', version : '>=1.16')/" \
         meson.build && \
     /usr/bin/meson --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE} && \
