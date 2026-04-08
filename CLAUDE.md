@@ -100,6 +100,12 @@ Current high-level status:
 - a Dockerfile fix for that runtime symlink has already been committed
 - IME support is still not implemented in `wsland`
 
+Current branch strategy:
+
+- `main` remains the base integration branch for runtime/build fixes
+- `feature/wsland-ime` is reserved for IME protocol work
+- IME work should be periodically rebased onto `main`
+
 See detailed status and validation history in:
 
 - [ai-docs/progress.md](/home/storm/Downloads/wslg-flake/ai-docs/progress.md)

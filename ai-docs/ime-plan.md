@@ -48,6 +48,30 @@ Reason:
 - the current `wsland` architecture already has a clear Wayland surface focus path
 - XWayland IME/XIM bridging is much more complex and should be postponed
 
+## Branching And CI Strategy
+
+Recommended branch split:
+
+- `main` for runtime/build/integration fixes
+- `feature/wsland-ime` for IME protocol implementation
+
+Recommended synchronization method:
+
+```sh
+git switch feature/wsland-ime
+git rebase main
+```
+
+Use this periodically as `main` accumulates `wsland` stability fixes.
+
+CI recommendation:
+
+- keep automatic GitHub Actions builds on `main` only
+- use `workflow_dispatch` manually for IME branch validation
+- do not make the IME branch auto-build on every push until the base compositor path is reliable
+
+This keeps IME work isolated from runtime bring-up work and avoids noisy, expensive VHD rebuilds during early protocol implementation.
+
 ## Recommended Implementation Plan
 
 ### Phase 1: expose the core IME protocols

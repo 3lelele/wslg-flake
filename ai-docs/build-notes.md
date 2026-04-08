@@ -60,6 +60,46 @@ What it does:
 6. Converts tar to `system_x64.vhd`
 7. Uploads both artifacts
 
+### Current Trigger Policy
+
+The current workflow already behaves close to the desired split:
+
+- `push` runs only on `main`
+- `workflow_dispatch` is available for manual builds
+
+Current recommendation:
+
+- keep automatic builds only on `main`
+- use manual `workflow_dispatch` for `feature/wsland-ime` or other experimental branches
+
+This means no immediate workflow file change is required just to support the IME branch strategy.
+
+### When Manual Builds Should Be Used
+
+For IME work:
+
+- do not add automatic builds on every IME branch push yet
+- only run Actions manually after the base `wsland` integration path is stable enough to validate IME behavior
+
+Reason:
+
+- the current bottleneck is still `wsland` runtime stability
+- running full VHD builds for every IME iteration would be expensive and low-signal before the base compositor path is reliable
+
+### Important Detail About Manual Runs
+
+There are two separate cases:
+
+1. If the IME work lives in a `wslg-flake` branch such as `feature/wsland-ime`
+
+- run `workflow_dispatch` from that branch in GitHub Actions
+
+2. If the IME work lives in a `wsland` branch
+
+- use the existing `wsland_ref` input to build that branch manually
+
+Because the workflow already supports both `push` on `main` and manual dispatch with a `wsland_ref` input, it does not currently need to be changed for this branch strategy.
+
 ## Confirmed Build Failures And Fixes
 
 ### Failure 1: `pulseaudio` Meson version parsing crash
