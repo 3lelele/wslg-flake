@@ -175,7 +175,7 @@ RUN /usr/bin/meson --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE_NODEBUGSTRIP} \
         -Dbuild-test=false && \
     ninja -C build -j8 install && \
-    echo 'DirectX-Headers:' `git --git-dir=/work/vendor/DirectX-Headers-1.0/.git rev-parse --verify HEAD` >> /work/versions.txt
+    echo "DirectX-Headers:" $(git --git-dir=/work/vendor/DirectX-Headers-1.0/.git rev-parse --verify HEAD 2>/dev/null || echo archive-source) >> /work/versions.txt
 
 # Build mesa with the minimal options we need.
 COPY vendor/mesa /work/vendor/mesa
@@ -186,7 +186,7 @@ RUN /usr/bin/meson --prefix=${PREFIX} build \
         -Dvulkan-drivers= \
         -Dllvm=disabled && \
     ninja -C build -j8 install && \
-    echo 'mesa:' `git --git-dir=/work/vendor/mesa/.git rev-parse --verify HEAD` >> /work/versions.txt
+    echo "mesa:" $(git --git-dir=/work/vendor/mesa/.git rev-parse --verify HEAD 2>/dev/null || echo archive-source) >> /work/versions.txt
 
 # Build PulseAudio
 COPY vendor/pulseaudio /work/vendor/pulseaudio
@@ -198,7 +198,7 @@ RUN /usr/bin/meson --prefix=${PREFIX} build \
         -Dgsettings=disabled \
         -Dtests=false && \
     ninja -C build -j8 install && \
-    echo 'pulseaudio:' `git --git-dir=/work/vendor/pulseaudio/.git rev-parse --verify HEAD` >> /work/versions.txt
+    echo "pulseaudio:" $(git --git-dir=/work/vendor/pulseaudio/.git rev-parse --verify HEAD 2>/dev/null || echo archive-source) >> /work/versions.txt
 
 # Build FreeRDP
 COPY vendor/FreeRDP /work/vendor/FreeRDP
@@ -224,7 +224,7 @@ RUN cmake -G Ninja \
         -DWITH_SHADOW=OFF \
         -DWITH_SAMPLE=OFF && \
     ninja -C build -j8 install && \
-    echo 'FreeRDP:' `git --git-dir=/work/vendor/FreeRDP/.git rev-parse --verify HEAD` >> /work/versions.txt
+    echo "FreeRDP:" $(git --git-dir=/work/vendor/FreeRDP/.git rev-parse --verify HEAD 2>/dev/null || echo archive-source) >> /work/versions.txt
 
 WORKDIR /work/debuginfo
 RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
@@ -274,7 +274,7 @@ RUN /usr/bin/meson --prefix=${PREFIX} build \
         -Dwcap-decode=false \
         -Dtest-junit-xml=false && \
     ninja -C build -j8 install && \
-    echo 'weston:' `git --git-dir=/work/vendor/weston/.git rev-parse --verify HEAD` >> /work/versions.txt
+    echo "weston:" $(git --git-dir=/work/vendor/weston/.git rev-parse --verify HEAD 2>/dev/null || echo archive-source) >> /work/versions.txt
 
 WORKDIR /work/debuginfo
 RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \

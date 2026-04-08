@@ -1,7 +1,7 @@
-.git
-.github
-.gitlab
-.gitlab-ci
-.vs
-out
-tmp
+/.git
+/.github
+/.gitlab
+/.gitlab-ci
+/.vs
+/out
+/tmp
