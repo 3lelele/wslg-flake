@@ -8,8 +8,9 @@ As of `2026-04-09`:
 - the effective config file for the running `WSLGd` is `%USERPROFILE%\\.wslgconfig`
 - the custom `WSLGd` build is confirmed to be running
 - `WSLGd` is confirmed to take the `wsland` branch when `WSLG_USE_WSLAND=1`
-- `wsland` startup then failed on a runtime library lookup issue
-- that runtime symlink issue has been fixed in the build recipe, but needs rebuild/redeploy validation
+- the previous `librdpapplist-server.so` runtime lookup failure is fixed in the rebuilt image
+- `wsland` now starts, initializes Wayland/Xwayland, and stays alive past compositor startup
+- additional `wsland` runtime logs were added for RDPGFX capability negotiation, surface lifecycle, and frame acknowledgement
 
 ## Timeline
 
@@ -135,16 +136,58 @@ Fix:
 
 - changed the Dockerfile symlink target from a build-time absolute path to a runtime-valid relative path
 
+### Stage 8: rebuilt image validated, `wsland` now starts
+
+Observed from `/mnt/wslg/stderr.log`:
+
+```text
+[09:43:53.381] <5>WSLGd: main:433: Launching wsland compositor (wslg-flake custom build 2026-04-09).
+00:00:00.000 [INFO] [backend/headless/backend.c:60] Creating headless backend
+00:00:00.000 [ERROR] [render/wlr_renderer.c:100] drmGetDevices2 failed: No such file or directory
+00:00:00.000 [INFO] [render/pixman/renderer.c:328] Creating pixman renderer
+00:00:00.008 [INFO] [../src/server/server.c:303] [server] running wayland compositor [ DISPLAY=:0, WAYLAND_DISPLAY=wayland-0 ]
+00:00:00.112 [INFO] [xwayland/server.c:107] Starting Xwayland on :0
+```
+
+This proved:
+
+- the rebuilt image no longer hits the old `librdpapplist-server.so` loader failure
+- `WSLGd` launches `wsland`
+- `wsland` survives long enough to initialize Wayland and Xwayland
+
+Remaining warnings seen during this stage:
+
+- wlroots falls back to the pixman renderer after `drmGetDevices2 failed`
+- several `rdpgfx` capability versions are logged as `UNKNOWN(...)`
+- dbus still warns about `XDG_RUNTIME_DIR` mode `040777`
+
+### Stage 9: added targeted `wsland` runtime diagnostics
+
+Additional logs were added in the `wsland` tree to make the next validation round much more precise.
+
+Coverage added:
+
+- RDPGFX capability advertise and confirm
+- peer activate settings and monitor layout
+- output creation
+- surface create/map/delete lifecycle
+- frame send, pixel upload, and frame acknowledge
+- backlog-based frame skipping
+
+These logs are intended to answer the next blocking question:
+
+- is `wsland` successfully negotiating graphics and sending frames to the RDP client, or only reaching compositor startup
+
 ## Current Blocker
 
 The current known blocker before IME work continues is:
 
-- rebuild and redeploy a VHD that contains commit `26b35d6`
-- confirm `wsland` starts without the `librdpapplist-server.so` runtime failure
+- validate that a real Wayland/X11 application is remoted correctly after `wsland` startup
+- determine whether any remaining failure is in RDPGFX capability negotiation, surface mapping, or frame delivery
 
 ## Recommended Next Validation
 
-After rebuilding and replacing the VHD:
+After rebuilding `wsland` with the new runtime logs and replacing the VHD:
 
 ```sh
 sed -n '1,80p' /mnt/wslg/stderr.log
@@ -155,4 +198,5 @@ Success criteria:
 
 - `stderr.log` shows `Launching wsland compositor (wslg-flake custom build 2026-04-09).`
 - the old shared-library error is gone
-- `wsland` remains alive long enough to create the expected display/socket path
+- `stderr.log` shows `running wayland compositor` and `Starting Xwayland on :0`
+- when an app is launched, the log shows `RDPGFX caps advertise`, `Surface created`, `Start frame`, and `Frame acknowledged`

@@ -224,3 +224,52 @@ If boot succeeds but apps fail:
    `/mnt/wslg/weston.log`
 2. Check whether `WAYLAND_DISPLAY=wayland-0` is visible in the user distro
 3. Check whether `wsland` sent ready notify and accepted RDP/vsock connections
+
+## Current Runtime Validation Signals
+
+### Expected startup signals
+
+After a good rebuild and `wsl --shutdown`, `/mnt/wslg/stderr.log` should show at least:
+
+```text
+Launching wsland compositor (wslg-flake custom build 2026-04-09).
+[server] running wayland compositor [ DISPLAY=:0, WAYLAND_DISPLAY=wayland-0 ]
+Starting Xwayland on :0
+```
+
+These lines prove:
+
+- the custom `WSLGd` build is active
+- `%USERPROFILE%\\.wslgconfig` was applied well enough to take the `wsland` branch
+- `wsland` survived compositor startup and initialized Xwayland
+
+### Warnings currently known but not yet treated as the primary blocker
+
+The following lines have been observed during successful `wsland` startup and are not, by themselves, proof of the current blocker:
+
+- `drmGetDevices2 failed: No such file or directory`
+- `Creating pixman renderer`
+- `Xwayland glamor: GBM Wayland interfaces not available`
+- `dbus ... XDG_RUNTIME_DIR "/mnt/wslg/runtime-dir" can be written by others (mode 040777)`
+- `Version : UNKNOWN(...)` from `rdpgfx`
+
+They still matter, but they do not invalidate the narrower conclusion that `wsland` now launches.
+
+### Additional `wsland` logs added for the next validation round
+
+The `wsland` tree now includes runtime logs for:
+
+- RDPGFX capability advertise and confirm
+- activate-time client settings and monitor layout
+- output creation
+- surface create/map/delete
+- frame start/end
+- alpha/pixel surface commands
+- frame acknowledge and backlog-driven frame skipping
+
+When testing an actual app launch, use these lines to classify the failure:
+
+- if `RDPGFX caps advertise` never appears, graphics negotiation did not complete
+- if capabilities appear but no `Surface created` appears, window-to-surface mapping is failing
+- if surfaces appear but no `Start frame` or `Surface command pixels` appears, rendering or damage collection is failing
+- if frames are sent but no `Frame acknowledged` appears, the client is not acknowledging delivered frames
