@@ -256,12 +256,14 @@ This removed output-layout mismatch as the primary suspect.
 Current state after the output-layout fix:
 
 - `weston-terminal` is still not visible on the Windows desktop
-- it still appears in the taskbar
+- it still appears in the taskbar as a red `msrdc.exe` icon (the RAIL window entry exists)
+- **clicking the taskbar icon produces no visible response at all** — no restore animation, no focus change, no flicker. This is stronger than "window is transparent"; a fully transparent layered window would usually still exhibit taskbar activation behavior. This suggests either the visibility region is effectively empty as far as Windows is concerned, or the window is being presented as a non-activatable/fully transparent layered surface that cannot be hit-tested
 - RAIL window creation, surface mapping, frame sending, and frame acknowledgement all continue to succeed
 
 Current leading hypothesis:
 
 - the final visibility problem is likely in alpha handling or layered-window semantics rather than in startup, geometry, or transport
+- specifically, even when `WSLAND_DISABLE_LAYERED_STYLE=1` removes `WS_EX_LAYERED`, the adapter still unconditionally emits the `RDPGFX_CODECID_ALPHA` surface command for every frame. `msrdc.exe` may therefore still composite the RAIL window as an alpha-keyed surface, and because `wsland_window_detection` clears the window buffer to `(0,0,0,0)` with `BLEND_MODE_NONE` before compositing content, any pixel not covered by client rendering stays fully transparent (`Surface alpha range: min=0 max=255`). This would be consistent with both "visible in taskbar" and "taskbar click does nothing"
 
 Additional diagnostic support added:
 
@@ -291,12 +293,31 @@ WSLAND_DISABLE_GFX_ALPHA=1
 WSLAND_DISABLE_LAYERED_STYLE=1
 ```
 
+### Stage 12 addendum: `Window update` title-only event ruled out
+
+While investigating the invisible-window symptom under `WSLAND_DISABLE_LAYERED_STYLE=1`, the following sequence was observed in `/mnt/wslg/stderr.log` after launching `weston-terminal`:
+
+```text
+Window create: id=1 title=Wayland Terminal field_flags=0x1181df1e owner=0 show=5 pos=1525,730 size=726x587 client=726x587 pending=1525,730 726x587
+Window update: id=1 title=storm@arch:~     field_flags=0x1000004  owner=0 show=0 pos=0,0    size=0x0     client=0x0     pending=1525,730 726x587
+```
+
+This update looked alarming at first glance because it appears to carry `show=0`, `pos=0,0`, `size=0x0`, i.e. an implicit hide. It is **not**:
+
+- `field_flags=0x01000004` decodes as `WINDOW_ORDER_TYPE_WINDOW | WINDOW_ORDER_FIELD_TITLE_INFO` only
+- the other values (`show`, `pos`, `size`, `client`) are zero-initialised fields of the local `WINDOW_STATE_ORDER window_state_order = {0}` in `wsland_window_update`; they are logged unconditionally but are **not** serialised into the RAIL `WindowUpdate` because their field-flag bits are not set
+- the code path that triggered this update is `data.title = true` in `wsland_window_detection` (bash changed the terminal title from `Wayland Terminal` to `storm@arch:~`), with `data.create/resize/offset/parent` all false, so only the title branch of `wsland_window_update` runs
+
+Conclusion: the title-only `Window update` is harmless. The `wsland_trace` format for `Window create`/`Window update` is misleading because it prints the full struct regardless of which fields are selected by `fieldFlags`. This is worth remembering when reading future logs.
+
+The log captured in this round also lacks the newly-added `reason=`, `style=`, `exstyle=`, `client_offset=`, `client_delta=`, `visible_offset=`, `rects=`, `vis_rects=` fields, which confirms that the running VHD was built from a `wsland` tree **before** these additional logs landed. The enhanced logs exist in the source tree but still need a VHD rebuild to become observable.
+
 ## Current Blocker
 
 The current known blocker before IME work continues is:
 
-- determine why a window that is already created, mapped, framed, and acknowledged still does not become visible on the Windows desktop
-- validate whether the remaining issue is in alpha handling / layered presentation semantics
+- determine why a window that is already created, mapped, framed, and acknowledged still does not become visible on the Windows desktop, including why clicking its taskbar icon does not produce any activation response
+- validate whether the remaining issue is in alpha handling / layered presentation semantics, and in particular whether unconditional `RDPGFX_CODECID_ALPHA` emission is still causing the client to composite the window as an alpha-keyed surface even when `WS_EX_LAYERED` is disabled
 
 ## Recommended Next Validation
 
