@@ -18,8 +18,27 @@ RUN printf '%s\n' \
     'gpgkey=https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/repodata/repomd.xml.key' \
     > /etc/yum.repos.d/azurelinux-extended.repo
 
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'set -eu' \
+    'attempt=1' \
+    'while [ "$attempt" -le 5 ]; do' \
+    '    if tdnf makecache --refresh && tdnf install -y "$@"; then' \
+    '        exit 0' \
+    '    fi' \
+    '    if [ "$attempt" -eq 5 ]; then' \
+    '        echo "tdnf install failed after $attempt attempts" >&2' \
+    '        exit 1' \
+    '    fi' \
+    '    echo "tdnf install failed on attempt $attempt, retrying..." >&2' \
+    '    attempt=$((attempt + 1))' \
+    '    sleep 15' \
+    'done' \
+    > /usr/local/bin/tdnf-install-retry && \
+    chmod +x /usr/local/bin/tdnf-install-retry
+
 RUN echo "== Install Core dependencies ==" && \
-    tdnf install -y \
+    /usr/local/bin/tdnf-install-retry \
         alsa-lib \
         alsa-lib-devel  \
         autoconf  \
@@ -99,7 +118,7 @@ RUN echo "== Install Core dependencies ==" && \
         zlib-devel
 
 RUN echo "== Install UI dependencies ==" && \
-    tdnf    install -y \
+    /usr/local/bin/tdnf-install-retry \
             libdrm-devel \
             libepoxy-devel \
             libevdev \
@@ -138,6 +157,7 @@ ARG WSLG_VERSION="<current>"
 ARG WSLG_ARCH="x86_64"
 ARG SYSTEMDISTRO_DEBUG_BUILD
 ARG FREERDP_VERSION=2
+ARG BUILDTYPE_FREERDP=RelWithDebInfo
 
 WORKDIR /work
 RUN echo "WSLg (" ${WSLG_ARCH} "):" ${WSLG_VERSION} > /work/versions.txt
@@ -158,7 +178,7 @@ ENV BUILDTYPE_NODEBUGSTRIP=${BUILDTYPE_NODEBUGSTRIP:-release}
 RUN echo "== System distro build type (no debug strip):" ${BUILDTYPE_NODEBUGSTRIP} " =="
 
 # FreeRDP is always built with RelWithDebInfo
-ENV BUILDTYPE_FREERDP=${BUILDTYPE_FREERDP:-RelWithDebInfo}
+ENV BUILDTYPE_FREERDP=${BUILDTYPE_FREERDP}
 RUN echo "== System distro build type (FreeRDP):" ${BUILDTYPE_FREERDP} " =="
 
 ENV WITH_DEBUG_FREERDP=${SYSTEMDISTRO_DEBUG_BUILD:+ON}
@@ -484,4 +504,4 @@ COPY --from=dev /work/vendor/mesa/docs /usr/share/doc/mesa/
 
 COPY --from=dev /work/versions.txt /etc/versions.txt
 
-CMD /usr/bin/WSLGd
+CMD ["/usr/bin/WSLGd"]
