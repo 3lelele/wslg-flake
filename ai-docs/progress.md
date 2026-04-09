@@ -12,6 +12,9 @@ As of `2026-04-09`:
 - `wsland` now starts, initializes Wayland/Xwayland, and stays alive past compositor startup
 - additional `wsland` runtime logs were added for RDPGFX capability negotiation, surface lifecycle, and frame acknowledgement
 - the extra `wsland` runtime diagnostics are now gated behind `WSLAND_TRACE_RUNTIME=1`
+- a real Wayland app (`weston-terminal`) is confirmed to create a window, create/map a surface, send frames, and receive frame acknowledgements
+- output layout/work-area mismatches were identified and fixed in `wsland`
+- the current remaining suspicion is no longer startup, routing, or ack; it is window visibility at the final composition/presentation layer, with alpha handling now the leading suspect
 
 ## Timeline
 
@@ -184,16 +187,101 @@ These logs are intended to answer the next blocking question:
 
 - is `wsland` successfully negotiating graphics and sending frames to the RDP client, or only reaching compositor startup
 
+### Stage 10: `weston-terminal` proved the base remoting path is alive
+
+Observed from `/mnt/wslg/stderr.log` after launching `weston-terminal`:
+
+```text
+Wayland map: title=Wayland Terminal ...
+Window create: id=1 ... show=5 ... size=726x587 ...
+Surface created: window_id=1 surface_id=1 size=726x587
+Surface mapped: window_id=1 surface_id=1 mapped=726x587 target=726x587
+Start frame: frame_id=3 windows=1
+Frame acknowledged: frame_id=3 current=5
+```
+
+This proved:
+
+- a real Wayland toplevel is created inside `wsland`
+- the corresponding RAIL window is created with a visible state
+- an RDPGFX surface is created and mapped
+- frames are sent
+- the Windows side acknowledges those frames
+
+At this stage the problem was no longer:
+
+- compositor startup
+- missing window creation
+- missing surface creation
+- lack of frame delivery
+- lack of frame acknowledgement
+
+### Stage 11: output layout and work-area binding bug found and fixed
+
+Earlier diagnostic logs showed an output/work-area mismatch, for example:
+
+```text
+Work area update: pos=3840,0 size=1920x1032
+Work area applied to output: monitor=0,0 3840x2160
+Wayland center: ... output=3840,0 1920x1080 work=0,0 3840x2112 ...
+```
+
+Root cause:
+
+- `wlr_output_layout_add_auto(...)` placed outputs in a layout that did not preserve the remote monitor coordinates
+- `wsland_output_create()` emitted `new_output` before monitor geometry had been assigned
+
+Fixes made in `wsland`:
+
+- bind outputs into `wlr_output_layout` using the explicit remote monitor coordinates
+- initialize `output->monitor` before output registration
+
+After the fix, logs became consistent:
+
+```text
+Bind output layout: name=wsland-1 monitor=3840,0 1920x1080
+Bind output layout: name=wsland-2 monitor=0,0 3840x2160
+Work area update: pos=3840,0 size=1920x1032
+Work area applied to output: monitor=3840,0 1920x1080
+Work area update: pos=0,0 size=3840x2112
+Work area applied to output: monitor=0,0 3840x2160
+Wayland center: title=Wayland Terminal output=0,0 3840x2160 work=0,0 3840x2112 ...
+```
+
+This removed output-layout mismatch as the primary suspect.
+
+### Stage 12: current leading suspicion is alpha/layered presentation
+
+Current state after the output-layout fix:
+
+- `weston-terminal` is still not visible on the Windows desktop
+- it still appears in the taskbar
+- RAIL window creation, surface mapping, frame sending, and frame acknowledgement all continue to succeed
+
+Current leading hypothesis:
+
+- the final visibility problem is likely in alpha handling or layered-window semantics rather than in startup, geometry, or transport
+
+Additional diagnostic support added:
+
+- `WSLAND_TRACE_RUNTIME=1` now also enables `Surface alpha range: ... min=... max=...`
+
+This should distinguish:
+
+- fully transparent content (`min=0 max=0`)
+- fully opaque content (`min=255 max=255`)
+- mixed alpha content (`min=0 max=255` or similar)
+
 ## Current Blocker
 
 The current known blocker before IME work continues is:
 
-- validate that a real Wayland/X11 application is remoted correctly after `wsland` startup
-- determine whether any remaining failure is in RDPGFX capability negotiation, surface mapping, or frame delivery
+- determine why a window that is already created, mapped, framed, and acknowledged still does not become visible on the Windows desktop
+- validate whether the remaining issue is in alpha handling / layered presentation semantics
 
 ## Recommended Next Validation
 
-After rebuilding `wsland` with the new runtime logs and replacing the VHD:
+After rebuilding `wsland` with the latest runtime logs and replacing the VHD:
 
 ```sh
 sed -n '1,80p' /mnt/wslg/stderr.log
@@ -205,4 +293,6 @@ Success criteria:
 - `stderr.log` shows `Launching wsland compositor (wslg-flake custom build 2026-04-09).`
 - the old shared-library error is gone
 - `stderr.log` shows `running wayland compositor` and `Starting Xwayland on :0`
-- when an app is launched, the log shows `RDPGFX caps advertise`, `Surface created`, `Start frame`, and `Frame acknowledged`
+- when an app is launched, the log shows `Window create`, `Surface created`, `Surface mapped`, `Start frame`, and `Frame acknowledged`
+- `Bind output layout`, `Work area update`, and `Wayland center` are internally consistent for the same monitor
+- `Surface alpha range` identifies whether the window content is being sent as transparent or opaque

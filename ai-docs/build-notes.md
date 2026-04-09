@@ -272,9 +272,13 @@ The `wsland` tree now includes runtime logs for:
 - RDPGFX capability advertise and confirm
 - activate-time client settings and monitor layout
 - output creation
+- output-layout binding and work-area application
+- Wayland/XWayland map and centering
+- RAIL window create/update state
 - surface create/map/delete
 - frame start/end
 - alpha/pixel surface commands
+- alpha min/max summary
 - frame acknowledge and backlog-driven frame skipping
 
 These logs are gated by `WSLAND_TRACE_RUNTIME=1` in `%USERPROFILE%\.wslgconfig`.
@@ -285,3 +289,6 @@ When testing an actual app launch, use these lines to classify the failure:
 - if capabilities appear but no `Surface created` appears, window-to-surface mapping is failing
 - if surfaces appear but no `Start frame` or `Surface command pixels` appears, rendering or damage collection is failing
 - if frames are sent but no `Frame acknowledged` appears, the client is not acknowledging delivered frames
+- if `Work area applied to output` and `Wayland center` refer to different monitors, output-layout binding is still wrong
+- if `Window create` shows a visible window with sane position/size and frames are acknowledged but the window is still invisible, inspect `Surface alpha range`
+- if `Surface alpha range` is `min=0 max=0`, the content is effectively being sent as fully transparent
