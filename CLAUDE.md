@@ -93,6 +93,7 @@ Meaning:
 - `WSLAND_TRACE_RUNTIME=1` enables detailed `wsland` runtime diagnostics in `/mnt/wslg/stderr.log`
 - `WSLAND_DISABLE_GFX_ALPHA=1` skips `RDPGFX_CODECID_ALPHA` uploads and sends only the pixel surface command
 - `WSLAND_DISABLE_LAYERED_STYLE=1` creates RAIL windows without `WS_EX_LAYERED`
+- with `WSLAND_TRACE_RUNTIME=1`, `Window create` and `Window update` also log `reason`, `style`, `exstyle`, offsets, client geometry, and rectangle counts for RAIL state debugging
 
 Recommended use:
 

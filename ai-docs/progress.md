@@ -268,6 +268,7 @@ Additional diagnostic support added:
 - `WSLAND_TRACE_RUNTIME=1` now also enables `Surface alpha range: ... min=... max=...`
 - `WSLAND_DISABLE_GFX_ALPHA=1` skips the `RDPGFX_CODECID_ALPHA` upload path
 - `WSLAND_DISABLE_LAYERED_STYLE=1` removes `WS_EX_LAYERED` from the created RAIL window
+- `Window create` and `Window update` now also log the RAIL update reason plus `style`, `exstyle`, offsets, client geometry, and rectangle counts
 
 This should distinguish:
 

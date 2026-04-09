@@ -318,6 +318,17 @@ The `wsland` tree now includes runtime logs for:
 - alpha min/max summary
 - frame acknowledge and backlog-driven frame skipping
 
+The `Window create` and `Window update` logs now also print:
+
+- `reason=...`
+  the trigger that produced the update, such as `create`, `title`, `offset`, `resize`, or `parent`
+- `style=0x...` and `exstyle=0x...`
+  the RAIL window style and extended style actually sent to the Windows side
+- `visible_offset=...`, `client_offset=...`, `client_delta=...`
+  the offsets carried in `WINDOW_STATE_ORDER`
+- `rects=...` and `vis_rects=...`
+  the number of window and visibility rectangles being sent
+
 These logs are gated by `WSLAND_TRACE_RUNTIME=1` in `%USERPROFILE%\.wslgconfig`.
 
 The visibility-specific toggles also come from `%USERPROFILE%\.wslgconfig` under `[system-distro-env]`:
@@ -333,4 +344,15 @@ When testing an actual app launch, use these lines to classify the failure:
 - if frames are sent but no `Frame acknowledged` appears, the client is not acknowledging delivered frames
 - if `Work area applied to output` and `Wayland center` refer to different monitors, output-layout binding is still wrong
 - if `Window create` shows a visible window with sane position/size and frames are acknowledged but the window is still invisible, inspect `Surface alpha range`
+- if `Window update` arrives immediately after create with unexpected `reason`, `style`, `exstyle`, `rects`, or `vis_rects`, inspect the RAIL window-state path before continuing alpha-focused debugging
 - if `Surface alpha range` is `min=0 max=0`, the content is effectively being sent as fully transparent
+
+Useful commands:
+
+```sh
+tail -n 120 /mnt/wslg/stderr.log | grep -E 'Window create|Window update'
+```
+
+```sh
+tail -n 120 /mnt/wslg/stderr.log | grep -E 'Wayland map|Window create|Window update|Surface created|Surface mapped|Surface command alpha|Surface command alpha skipped|Surface alpha range|Surface command pixels|Frame acknowledged'
+```
