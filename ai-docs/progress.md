@@ -11,6 +11,7 @@ As of `2026-04-09`:
 - the previous `librdpapplist-server.so` runtime lookup failure is fixed in the rebuilt image
 - `wsland` now starts, initializes Wayland/Xwayland, and stays alive past compositor startup
 - additional `wsland` runtime logs were added for RDPGFX capability negotiation, surface lifecycle, and frame acknowledgement
+- the extra `wsland` runtime diagnostics are now gated behind `WSLAND_TRACE_RUNTIME=1`
 
 ## Timeline
 
@@ -173,6 +174,11 @@ Coverage added:
 - surface create/map/delete lifecycle
 - frame send, pixel upload, and frame acknowledge
 - backlog-based frame skipping
+
+Control:
+
+- enable with `WSLAND_TRACE_RUNTIME=1` in `%USERPROFILE%\\.wslgconfig`
+- leave it unset for normal use to keep logs quiet
 
 These logs are intended to answer the next blocking question:
 

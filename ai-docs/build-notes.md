@@ -197,6 +197,16 @@ systemDistro=C:\\WSL\\system_x64.vhd
 WSLG_USE_WSLAND=1
 ```
 
+If you want the extra `wsland` runtime diagnostics enabled during debugging, use:
+
+```ini
+[system-distro-env]
+WSLG_USE_WSLAND=1
+WSLAND_TRACE_RUNTIME=1
+```
+
+Keep `WSLAND_TRACE_RUNTIME` unset in normal use to avoid verbose logs.
+
 4. Run from Windows:
 
 ```powershell
@@ -266,6 +276,8 @@ The `wsland` tree now includes runtime logs for:
 - frame start/end
 - alpha/pixel surface commands
 - frame acknowledge and backlog-driven frame skipping
+
+These logs are gated by `WSLAND_TRACE_RUNTIME=1` in `%USERPROFILE%\.wslgconfig`.
 
 When testing an actual app launch, use these lines to classify the failure:
 
