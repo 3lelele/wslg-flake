@@ -166,20 +166,28 @@ void SetupOptionalEnv()
     // Set additional environment variables.
     wIniFile* wslgConfigIniFile = IniFile_New();
     if (wslgConfigIniFile) {
-        if (IniFile_ReadFile(wslgConfigIniFile, configFilePath.c_str()) > 0) {
+        LOG_INFO("Loading WSLG config from %s", configFilePath.c_str());
+        const int readResult = IniFile_ReadFile(wslgConfigIniFile, configFilePath.c_str());
+        if (readResult > 0) {
             int numKeys = 0;
             char **keyNames = IniFile_GetSectionKeyNames(wslgConfigIniFile, c_systemDistroEnvSection, &numKeys);
+            LOG_INFO("Loaded WSLG config section [%s] with %d keys", c_systemDistroEnvSection, numKeys);
             for (int n = 0; keyNames && n < numKeys; n++) {
                 const char *value = IniFile_GetKeyValueString(wslgConfigIniFile, c_systemDistroEnvSection, keyNames[n]);
                 if (value) {
+                    LOG_INFO("Applying config env %s=%s", keyNames[n], value);
                     setenv(keyNames[n], value, true);
                 }
             }
 
             free(keyNames);
+        } else {
+            LOG_ERROR("Failed to read WSLG config %s (IniFile_ReadFile=%d)", configFilePath.c_str(), readResult);
         }
 
         IniFile_Free(wslgConfigIniFile);
+    } else {
+        LOG_ERROR("Failed to allocate WSLG config parser.");
     }
 #endif // HAVE_WINPR
 
