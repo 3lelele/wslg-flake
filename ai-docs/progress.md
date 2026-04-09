@@ -12,6 +12,7 @@ As of `2026-04-09`:
 - `wsland` now starts, initializes Wayland/Xwayland, and stays alive past compositor startup
 - additional `wsland` runtime logs were added for RDPGFX capability negotiation, surface lifecycle, and frame acknowledgement
 - the extra `wsland` runtime diagnostics are now gated behind `WSLAND_TRACE_RUNTIME=1`
+- visibility diagnostics can now also be steered from `%USERPROFILE%\\.wslgconfig` with `WSLAND_DISABLE_GFX_ALPHA=1` and `WSLAND_DISABLE_LAYERED_STYLE=1`
 - a real Wayland app (`weston-terminal`) is confirmed to create a window, create/map a surface, send frames, and receive frame acknowledgements
 - output layout/work-area mismatches were identified and fixed in `wsland`
 - the current remaining suspicion is no longer startup, routing, or ack; it is window visibility at the final composition/presentation layer, with alpha handling now the leading suspect
@@ -265,12 +266,29 @@ Current leading hypothesis:
 Additional diagnostic support added:
 
 - `WSLAND_TRACE_RUNTIME=1` now also enables `Surface alpha range: ... min=... max=...`
+- `WSLAND_DISABLE_GFX_ALPHA=1` skips the `RDPGFX_CODECID_ALPHA` upload path
+- `WSLAND_DISABLE_LAYERED_STYLE=1` removes `WS_EX_LAYERED` from the created RAIL window
 
 This should distinguish:
 
 - fully transparent content (`min=0 max=0`)
 - fully opaque content (`min=255 max=255`)
 - mixed alpha content (`min=0 max=255` or similar)
+
+These toggles are set in `%USERPROFILE%\\.wslgconfig` under:
+
+```ini
+[system-distro-env]
+WSLG_USE_WSLAND=1
+WSLAND_TRACE_RUNTIME=1
+```
+
+and then optionally:
+
+```ini
+WSLAND_DISABLE_GFX_ALPHA=1
+WSLAND_DISABLE_LAYERED_STYLE=1
+```
 
 ## Current Blocker
 

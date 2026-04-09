@@ -77,6 +77,28 @@ Current intended content:
 WSLG_USE_WSLAND=1
 ```
 
+Optional debugging additions:
+
+```ini
+[system-distro-env]
+WSLG_USE_WSLAND=1
+WSLAND_TRACE_RUNTIME=1
+WSLAND_DISABLE_GFX_ALPHA=1
+WSLAND_DISABLE_LAYERED_STYLE=1
+```
+
+Meaning:
+
+- `WSLG_USE_WSLAND=1` tells `WSLGd` to launch `wsland` instead of `weston`
+- `WSLAND_TRACE_RUNTIME=1` enables detailed `wsland` runtime diagnostics in `/mnt/wslg/stderr.log`
+- `WSLAND_DISABLE_GFX_ALPHA=1` skips `RDPGFX_CODECID_ALPHA` uploads and sends only the pixel surface command
+- `WSLAND_DISABLE_LAYERED_STYLE=1` creates RAIL windows without `WS_EX_LAYERED`
+
+Recommended use:
+
+- leave the two `WSLAND_DISABLE_*` variables unset in normal runs
+- only enable them during visibility debugging to isolate alpha-command vs layered-window behavior
+
 Important:
 
 - The active `WSLGd` build reads `%USERPROFILE%\\.wslgconfig`

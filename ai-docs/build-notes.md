@@ -207,6 +207,43 @@ WSLAND_TRACE_RUNTIME=1
 
 Keep `WSLAND_TRACE_RUNTIME` unset in normal use to avoid verbose logs.
 
+For visibility debugging, the same `%USERPROFILE%\.wslgconfig` file can also carry these temporary switches:
+
+```ini
+[system-distro-env]
+WSLG_USE_WSLAND=1
+WSLAND_TRACE_RUNTIME=1
+WSLAND_DISABLE_GFX_ALPHA=1
+WSLAND_DISABLE_LAYERED_STYLE=1
+```
+
+Meaning:
+
+- `WSLAND_DISABLE_GFX_ALPHA=1`
+  Skip the `RDPGFX_CODECID_ALPHA` surface command and send only the uncompressed pixel surface command.
+- `WSLAND_DISABLE_LAYERED_STYLE=1`
+  Create the RAIL window without `WS_EX_LAYERED`.
+
+Recommended diagnostic order:
+
+1. Baseline:
+   only `WSLG_USE_WSLAND=1` and `WSLAND_TRACE_RUNTIME=1`
+2. Alpha command off:
+   add `WSLAND_DISABLE_GFX_ALPHA=1`
+3. Layered style off:
+   remove the previous switch and add `WSLAND_DISABLE_LAYERED_STYLE=1`
+4. Both off:
+   set both `WSLAND_DISABLE_GFX_ALPHA=1` and `WSLAND_DISABLE_LAYERED_STYLE=1`
+
+Expected log signatures in `/mnt/wslg/stderr.log`:
+
+- normal alpha path:
+  `Surface command alpha: ...`
+- alpha upload disabled:
+  `Surface command alpha skipped: ...`
+
+Leave the `WSLAND_DISABLE_*` switches unset outside targeted debugging so normal behavior remains unchanged.
+
 4. Run from Windows:
 
 ```powershell
@@ -282,6 +319,11 @@ The `wsland` tree now includes runtime logs for:
 - frame acknowledge and backlog-driven frame skipping
 
 These logs are gated by `WSLAND_TRACE_RUNTIME=1` in `%USERPROFILE%\.wslgconfig`.
+
+The visibility-specific toggles also come from `%USERPROFILE%\.wslgconfig` under `[system-distro-env]`:
+
+- `WSLAND_DISABLE_GFX_ALPHA=1`
+- `WSLAND_DISABLE_LAYERED_STYLE=1`
 
 When testing an actual app launch, use these lines to classify the failure:
 
