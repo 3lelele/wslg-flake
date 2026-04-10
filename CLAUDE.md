@@ -85,6 +85,8 @@ WSLG_USE_WSLAND=1
 WSLAND_TRACE_RUNTIME=1
 WSLAND_DISABLE_GFX_ALPHA=1
 WSLAND_DISABLE_LAYERED_STYLE=1
+WSLAND_DISABLE_TITLE_UPDATE=1
+WSLAND_DISABLE_OWNER_FIELD=1
 ```
 
 Meaning:
@@ -101,6 +103,8 @@ Recommended use:
 
 - leave the two `WSLAND_DISABLE_*` variables unset in normal runs
 - only enable them during visibility debugging to isolate alpha-command vs layered-window behavior
+- the current "max isolation" debug profile during invisible-window work is:
+  `WSLAND_DISABLE_GFX_ALPHA=1`, `WSLAND_DISABLE_LAYERED_STYLE=1`, `WSLAND_DISABLE_TITLE_UPDATE=1`, `WSLAND_DISABLE_OWNER_FIELD=1`
 
 Important:
 
@@ -123,6 +127,9 @@ Current high-level status:
 - `WSLGd` can be switched to the `wsland` launch branch
 - `wsland` startup exposed a runtime `rdpapplist` symlink issue
 - a Dockerfile fix for that runtime symlink has already been committed
+- `weston-terminal` is confirmed to create a RAIL window, map an RDPGFX surface, send pixel frames, and receive frame acknowledgements under `wsland`
+- the invisible-window issue is no longer suspected to be caused solely by alpha upload, layered style, title-only updates, or owner-field updates; these paths now have dedicated toggles and have been exercised during diagnostics
+- multiple `wsland` window-state behaviors have been aligned with `microsoft/weston-mirror` `rdprail.c`, including owner semantics, create/show sequencing, taskbar-state persistence, visibility rect coordinates, and client-area sizing
 - IME support is still not implemented in `wsland`
 
 Current branch strategy:
@@ -149,3 +156,13 @@ IME analysis and implementation plan:
 
 - `ff65444` `Add WSLGd custom build marker logs`
 - `26b35d6` `Fix rdpapplist runtime symlink for wsland`
+- `b41a58f` `Log detailed RAIL window state transitions`
+- `4d9be48` `Add diagnostic switch to skip title-only window updates`
+- `17170b6` `Add owner-field diagnostic toggle for RAIL windows`
+- `3196ffc` `Align owner/taskbar update semantics with weston rdprail`
+- `03d44fd` `Align window-create show/taskbar semantics with weston`
+- `d699934` `Send follow-up show update after hidden window create`
+- `ec50437` `Fix taskbar state regression in create/title updates`
+- `3ace540` `Use absolute rect coordinates for RAIL window visibility`
+- `7d8aa56` `Send geometry with initial show sync and restore top-level taskbar state`
+- `67837b4` `Align client area height and move updates with weston`

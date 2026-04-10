@@ -215,6 +215,8 @@ WSLG_USE_WSLAND=1
 WSLAND_TRACE_RUNTIME=1
 WSLAND_DISABLE_GFX_ALPHA=1
 WSLAND_DISABLE_LAYERED_STYLE=1
+WSLAND_DISABLE_TITLE_UPDATE=1
+WSLAND_DISABLE_OWNER_FIELD=1
 ```
 
 Meaning:
@@ -223,6 +225,10 @@ Meaning:
   Skip the `RDPGFX_CODECID_ALPHA` surface command and send only the uncompressed pixel surface command.
 - `WSLAND_DISABLE_LAYERED_STYLE=1`
   Create the RAIL window without `WS_EX_LAYERED`.
+- `WSLAND_DISABLE_TITLE_UPDATE=1`
+  Skip non-create title-only RAIL `WindowUpdate` PDUs.
+- `WSLAND_DISABLE_OWNER_FIELD=1`
+  Skip `WINDOW_ORDER_FIELD_OWNER` in RAIL window state updates.
 
 Recommended diagnostic order:
 
@@ -232,8 +238,12 @@ Recommended diagnostic order:
    add `WSLAND_DISABLE_GFX_ALPHA=1`
 3. Layered style off:
    remove the previous switch and add `WSLAND_DISABLE_LAYERED_STYLE=1`
-4. Both off:
-   set both `WSLAND_DISABLE_GFX_ALPHA=1` and `WSLAND_DISABLE_LAYERED_STYLE=1`
+4. Title update off:
+   keep prior conclusions and add `WSLAND_DISABLE_TITLE_UPDATE=1` when the immediate post-create title change is under suspicion
+5. Owner field off:
+   add `WSLAND_DISABLE_OWNER_FIELD=1` when owner semantics are under suspicion
+6. Max isolation:
+   set `WSLAND_DISABLE_GFX_ALPHA=1`, `WSLAND_DISABLE_LAYERED_STYLE=1`, `WSLAND_DISABLE_TITLE_UPDATE=1`, and `WSLAND_DISABLE_OWNER_FIELD=1`
 
 Expected log signatures in `/mnt/wslg/stderr.log`:
 
@@ -337,6 +347,22 @@ The visibility-specific toggles also come from `%USERPROFILE%\.wslgconfig` under
 - `WSLAND_DISABLE_LAYERED_STYLE=1`
 - `WSLAND_DISABLE_TITLE_UPDATE=1`
 - `WSLAND_DISABLE_OWNER_FIELD=1`
+
+Recent confirmed conclusions from diagnostics:
+
+- `WSLAND_DISABLE_GFX_ALPHA=1` still leaves the window invisible while frames are acknowledged, so `RDPGFX_CODECID_ALPHA` alone is not the root cause
+- `WSLAND_DISABLE_LAYERED_STYLE=1` still leaves the window invisible, so `WS_EX_LAYERED` alone is not the root cause
+- `WSLAND_DISABLE_TITLE_UPDATE=1` proves the immediate title-only update is not the root cause
+- `WSLAND_DISABLE_OWNER_FIELD=1` alone also does not restore visibility
+
+Recent `weston`-aligned fixes made in `wsland`:
+
+- `WindowCreate` now starts hidden and is followed by an explicit show transition
+- the first show transition now also carries geometry fields
+- taskbar button state is preserved across partial `WindowUpdate` PDUs
+- `WND_RECTS` and `VISIBILITY` now use absolute client coordinates like `weston`
+- non-fullscreen `clientAreaHeight` is now sent shorter than `windowHeight`, matching `weston`'s client-area semantics
+- move-only updates now also carry the taskbar-button field
 
 When testing an actual app launch, use these lines to classify the failure:
 

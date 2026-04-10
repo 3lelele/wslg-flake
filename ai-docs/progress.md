@@ -17,6 +17,15 @@ As of `2026-04-09`:
 - output layout/work-area mismatches were identified and fixed in `wsland`
 - the current remaining suspicion is no longer startup, routing, or ack; it is window visibility at the final composition/presentation layer, with alpha handling now the leading suspect
 
+As of `2026-04-10`:
+
+- the invisible-window symptom is still reproducible after multiple targeted diagnostics
+- `RDPGFX_CODECID_ALPHA` has been ruled out as a sole cause
+- `WS_EX_LAYERED` has been ruled out as a sole cause
+- the immediate title-only `WindowUpdate` has been ruled out as a sole cause
+- omitting `WINDOW_ORDER_FIELD_OWNER` has been ruled out as a sole cause
+- `wsland` has been partially aligned with `microsoft/weston-mirror` `rdprail.c` in several window-state details to eliminate protocol mismatches before further speculation
+
 ## Timeline
 
 ### Stage 1: user distro environment looked correct
@@ -313,6 +322,55 @@ This update looked alarming at first glance because it appears to carry `show=0`
 Conclusion: the title-only `Window update` is harmless. The `wsland_trace` format for `Window create`/`Window update` is misleading because it prints the full struct regardless of which fields are selected by `fieldFlags`. This is worth remembering when reading future logs.
 
 The log captured in this round also lacks the newly-added `reason=`, `style=`, `exstyle=`, `client_offset=`, `client_delta=`, `visible_offset=`, `rects=`, `vis_rects=` fields, which confirms that the running VHD was built from a `wsland` tree **before** these additional logs landed. The enhanced logs exist in the source tree but still need a VHD rebuild to become observable.
+
+### Stage 13: alpha/layered/title/owner single-factor explanations ruled out
+
+The following diagnostics were all run with fresh VHD rebuilds and `%USERPROFILE%\.wslgconfig` toggles:
+
+- `WSLAND_DISABLE_GFX_ALPHA=1`
+- `WSLAND_DISABLE_LAYERED_STYLE=1`
+- `WSLAND_DISABLE_TITLE_UPDATE=1`
+- `WSLAND_DISABLE_OWNER_FIELD=1`
+
+Observed results:
+
+- `Surface command alpha skipped: ...` appeared when alpha upload was disabled
+- `exstyle=0x0` appeared when layered style was disabled
+- `Window update skipped: ... reason=title-disabled` appeared when title-only updates were disabled
+- `owner_field_disabled=1` appeared when owner updates were disabled
+- in all cases, `Window create`, `Surface created`, `Surface mapped`, `Surface command pixels`, and `Frame acknowledged` continued to succeed
+- the window still did not become visible on the Windows desktop
+
+Conclusion:
+
+- these factors may still interact with other state, but none of them alone explains the invisible-window symptom
+
+### Stage 14: direct comparison against `microsoft/weston-mirror`
+
+To reduce low-signal rebuild cycles, the official `microsoft/weston-mirror` `working` branch was cloned locally and `libweston/backend-rdp/rdprail.c` was used as the reference implementation for RAIL window-state behavior.
+
+This comparison identified several concrete mismatches in `wsland`, each fixed in the `wsland` repository:
+
+- `b41a58f` `Log detailed RAIL window state transitions`
+- `4d9be48` `Add diagnostic switch to skip title-only window updates`
+- `17170b6` `Add owner-field diagnostic toggle for RAIL windows`
+- `3196ffc` `Align owner/taskbar update semantics with weston rdprail`
+- `03d44fd` `Align window-create show/taskbar semantics with weston`
+- `d699934` `Send follow-up show update after hidden window create`
+- `ec50437` `Fix taskbar state regression in create/title updates`
+- `3ace540` `Use absolute rect coordinates for RAIL window visibility`
+- `7d8aa56` `Send geometry with initial show sync and restore top-level taskbar state`
+- `67837b4` `Align client area height and move updates with weston`
+
+Important concrete fixes from this comparison:
+
+- `ownerWindowId` now uses the desktop window id for top-level windows when no parent exists
+- `WindowCreate` now starts hidden and later transitions to visible via an explicit follow-up update
+- the initial show transition now resends geometry rather than only `SHOW/TASKBAR`
+- `TaskbarButton` state is now preserved across partial `WindowUpdate` PDUs
+- `WND_RECTS` and `VISIBILITY` now use absolute client coordinates, matching `weston`
+- non-fullscreen `clientAreaHeight` is now shorter than `windowHeight`, matching the semantics expected by the RDP client
+- move-only updates now carry the taskbar-button field
 
 ## Current Blocker
 
