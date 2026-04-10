@@ -336,6 +336,7 @@ The visibility-specific toggles also come from `%USERPROFILE%\.wslgconfig` under
 - `WSLAND_DISABLE_GFX_ALPHA=1`
 - `WSLAND_DISABLE_LAYERED_STYLE=1`
 - `WSLAND_DISABLE_TITLE_UPDATE=1`
+- `WSLAND_DISABLE_OWNER_FIELD=1`
 
 When testing an actual app launch, use these lines to classify the failure:
 
@@ -347,6 +348,7 @@ When testing an actual app launch, use these lines to classify the failure:
 - if `Window create` shows a visible window with sane position/size and frames are acknowledged but the window is still invisible, inspect `Surface alpha range`
 - if `Window update` arrives immediately after create with unexpected `reason`, `style`, `exstyle`, `rects`, or `vis_rects`, inspect the RAIL window-state path before continuing alpha-focused debugging
 - if `reason=title` update appears right after create and visibility is lost, test with `WSLAND_DISABLE_TITLE_UPDATE=1` and look for `Window update skipped: ... reason=title-disabled`
+- if visibility is still missing with alpha/layered/title toggles applied, test `WSLAND_DISABLE_OWNER_FIELD=1` and verify `owner_field_disabled=1` in `Window create`/`Window update`
 - if `Surface alpha range` is `min=0 max=0`, the content is effectively being sent as fully transparent
 
 Useful commands:
