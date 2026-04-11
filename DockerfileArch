@@ -2,26 +2,33 @@
 FROM archlinux:base-devel AS build-env
 RUN echo 'Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist
 
-# Install all the required packages for building. This list is probably
-# longer than necessary.
-RUN echo "== Install Git/CA certificates ==" && \
-    pacman -Sy --noconfirm \
+RUN pacman -Sy --noconfirm \
         git \
         mesa \
-        directx-headers
-
-#RUN echo "== Install all dependencies ==" && \
-    pacman -S --noconfirm \
+        directx-headers \
         meson \
+        ninja \
+        cmake \
+        clang \
+        pkg-config \
+        wlroots0.20 \
+        xorg-xwayland \
         libsndfile \
         libice \
         libsm \
         libxtst \
         perl-xml-parser \
-        cmake \
-        clang \
-        wlroots0.20 \
-        xorg-xwayland
+        cairo \
+        pixman \
+        libxkbcommon \
+        openssl \
+        xcb \
+        xcb-util-cursor \
+        pango \
+        alsa-lib \
+        icu \
+        wayland-protocols \
+        xwayland
 
 # Create an image with builds of FreeRDP and Weston
 FROM build-env AS dev
