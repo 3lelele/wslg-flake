@@ -22,13 +22,12 @@ RUN pacman -Sy --noconfirm \
         pixman \
         libxkbcommon \
         openssl \
-        xcb \
+        libxcb \
         xcb-util-cursor \
         pango \
         alsa-lib \
         icu \
-        wayland-protocols \
-        xwayland
+        wayland-protocols
 
 # Create an image with builds of FreeRDP and Weston
 FROM build-env AS dev
