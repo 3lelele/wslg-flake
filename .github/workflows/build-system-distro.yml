@@ -6,7 +6,7 @@ on:
       wsland_ref:
         description: wsland git ref to build
         required: false
-        default: working
+        default: master
   push:
     branches:
       - main
@@ -38,8 +38,6 @@ jobs:
           git clone --branch working https://github.com/microsoft/pulseaudio-mirror.git vendor/pulseaudio
           git -C vendor/pulseaudio fetch --tags --force
           git clone --depth 1 --branch "${WSLAND_REF}" "${WSLAND_REPO}" vendor/wsland
-
-          git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa.git vendor/mesa
 
       - name: Build system distro image
         run: |

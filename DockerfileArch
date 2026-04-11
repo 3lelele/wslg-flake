@@ -1,24 +1,36 @@
-# Create a builder image with the compilers, etc. needed
+# === Build stage ===
 FROM archlinux:base-devel AS build-env
 RUN echo 'Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist
 
-# Install all the required packages for building.
+# Install all build dependencies
 RUN pacman -Sy --noconfirm \
         git \
         mesa \
         directx-headers \
         meson \
+        ninja \
+        cmake \
+        clang \
+        pkg-config \
+        wlroots0.20 \
+        xorg-xwayland \
         libsndfile \
         libice \
         libsm \
         libxtst \
         perl-xml-parser \
-        cmake \
-        clang \
-        wlroots0.20 \
-        xorg-xwayland
+        cairo \
+        pixman \
+        libxkbcommon \
+        openssl \
+        xcb \
+        xcb-util-cursor \
+        pango \
+        alsa-lib \
+        icu \
+        wayland-protocols \
+        xwayland
 
-# Create an image with builds of FreeRDP and Weston
 FROM build-env AS dev
 
 ARG WSLG_VERSION="<current>"
@@ -29,29 +41,18 @@ ARG FREERDP_VERSION=2
 WORKDIR /work
 RUN echo "WSLg (" ${WSLG_ARCH} "):" ${WSLG_VERSION} > /work/versions.txt
 RUN echo "Built at:" `date --utc` >> /work/versions.txt
-
 RUN echo "Arch Linux:" `cat /etc/os-release | head -2 | tail -1` >> /work/versions.txt
-
-#
-# Build runtime dependencies.
-#
 
 ENV BUILDTYPE=${SYSTEMDISTRO_DEBUG_BUILD:+debug}
 ENV BUILDTYPE=${BUILDTYPE:-release}
-RUN echo "== System distro build type:" ${BUILDTYPE} " =="
-
 ENV BUILDTYPE_NODEBUGSTRIP=${SYSTEMDISTRO_DEBUG_BUILD:+debug}
 ENV BUILDTYPE_NODEBUGSTRIP=${BUILDTYPE_NODEBUGSTRIP:-release}
-RUN echo "== System distro build type (no debug strip):" ${BUILDTYPE_NODEBUGSTRIP} " =="
 
-# FreeRDP is always built with RelWithDebInfo
 ARG BUILDTYPE_FREERDP
 ENV BUILDTYPE_FREERDP=${BUILDTYPE_FREERDP:-RelWithDebInfo}
-RUN echo "== System distro build type (FreeRDP):" ${BUILDTYPE_FREERDP} " =="
 
 ENV WITH_DEBUG_FREERDP=${SYSTEMDISTRO_DEBUG_BUILD:+ON}
 ENV WITH_DEBUG_FREERDP=${WITH_DEBUG_FREERDP:-OFF}
-RUN echo "== System distro build type (FreeRDP Debug Options):" ${WITH_DEBUG_FREERDP} " =="
 
 ENV DESTDIR=/work/build
 ENV PREFIX=/usr
@@ -67,13 +68,10 @@ ENV CXX=/usr/bin/g++
 COPY debuginfo /work/debuginfo
 RUN chmod +x /work/debuginfo/gen_debuginfo.sh
 
-# Build mesa with the minimal options we need.
-COPY vendor/mesa /work/vendor/mesa
-
 # Build PulseAudio
 COPY vendor/pulseaudio /work/vendor/pulseaudio
 WORKDIR /work/vendor/pulseaudio
-RUN /usr/bin/meson --prefix=${PREFIX} build \
+RUN /usr/bin/meson setup --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE_NODEBUGSTRIP} \
         -Ddatabase=simple \
         -Ddoxygen=false \
@@ -118,9 +116,10 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
 # Build rdpapplist RDP virtual channel plugin
 COPY rdpapplist /work/rdpapplist
 WORKDIR /work/rdpapplist
-RUN /usr/bin/meson --prefix=${PREFIX} build \
+RUN /usr/bin/meson setup --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE} && \
-    ninja -C build -j8 install
+    ninja -C build -j8 install && \
+    ln -sf rdpapplist/librdpapplist-server.so ${DESTDIR}${PREFIX}/lib/librdpapplist-server.so
 
 WORKDIR /work/debuginfo
 RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
@@ -128,10 +127,10 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
         /work/debuginfo/gen_debuginfo.sh /work/debuginfo/rdpapplist.list /work/build; \
     fi
 
-# Build Weston
+# Build wsland (uses system wlroots 0.20)
 COPY vendor/wsland /work/vendor/wsland
 WORKDIR /work/vendor/wsland
-RUN /usr/bin/meson --prefix=${PREFIX} build \
+RUN /usr/bin/meson setup --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE} && \
     ninja -C build -j8 install && \
     echo 'wsland:' `git --git-dir=/work/vendor/wsland/.git rev-parse --verify HEAD` >> /work/versions.txt
@@ -148,7 +147,7 @@ ENV CXX=/usr/bin/clang++
 
 COPY WSLGd /work/WSLGd
 WORKDIR /work/WSLGd
-RUN /usr/bin/meson --prefix=${PREFIX} build \
+RUN /usr/bin/meson setup --prefix=${PREFIX} build \
         --buildtype=${BUILDTYPE} && \
     ninja -C build -j8 install
 
@@ -173,8 +172,7 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
 FROM archlinux:base AS runtime
 RUN echo 'Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist
 
-#RUN echo "== Install Core/UI Runtime Dependencies ==" && \
-    pacman -Sy --noconfirm \
+RUN pacman -Sy --noconfirm \
     mesa \
     directx-headers \
     wlroots0.20 \
@@ -204,7 +202,6 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
              vim; \
     fi
 
-# Clear the tdnf cache to make the image smaller
 RUN /sbin/busybox --install -s
 RUN pacman -Scc --noconfirm
 
@@ -224,7 +221,7 @@ COPY resources/linux.png /usr/share/icons/wsl/linux.png
 COPY --from=dev /work/build/usr/ /usr/
 COPY --from=dev /work/build/etc/ /etc/
 
-# Append WSLg setttings to pulseaudio.
+# Append WSLg settings to pulseaudio.
 COPY config/default_wslg.pa /etc/pulse/default_wslg.pa
 RUN cat /etc/pulse/default_wslg.pa >> /etc/pulse/default.pa
 RUN rm /etc/pulse/default_wslg.pa
@@ -238,9 +235,6 @@ COPY --from=dev /work/vendor/pulseaudio/GPL \
 
 # Copy the licensing information for FreeRDP
 COPY --from=dev /work/vendor/freerdp/LICENSE /usr/share/doc/FreeRDP/LICENSE
-
-# copy the documentation and licensing information for mesa
-COPY --from=dev /work/vendor/mesa/docs /usr/share/doc/mesa/
 
 COPY --from=dev /work/versions.txt /etc/versions.txt
 
