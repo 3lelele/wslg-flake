@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       wsland_ref:
-        description: wsland git ref to build
+        description: 'wsland git ref to build (branch, tag, or commit)'
         required: false
-        default: master
+        default: 'master'
+      debug_build:
+        description: 'Enable debug build'
+        type: boolean
+        required: false
+        default: false
   push:
     branches:
       - main
@@ -34,9 +39,17 @@ jobs:
           rm -rf vendor
           mkdir -p vendor
 
+          # Mesa
+          git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa.git vendor/mesa
+
+          # FreeRDP - qq1038765585's fork with GFXREDIR and RDPAPPLIST channel support
           git clone --branch working https://github.com/qq1038765585/freerdp-flake.git vendor/freerdp
+
+          # PulseAudio - microsoft mirror
           git clone --branch working https://github.com/microsoft/pulseaudio-mirror.git vendor/pulseaudio
           git -C vendor/pulseaudio fetch --tags --force
+
+          # wsland - our repo (synced with qq upstream)
           git clone --depth 1 --branch "${WSLAND_REF}" "${WSLAND_REPO}" vendor/wsland
 
       - name: Build system distro image
@@ -44,7 +57,8 @@ jobs:
           set -euxo pipefail
           docker build -f DockerfileArch -t system-distro-x64 . \
             --build-arg WSLG_VERSION="${GITHUB_SHA}" \
-            --build-arg WSLG_ARCH=x86_64
+            --build-arg WSLG_ARCH=x86_64 \
+            --build-arg SYSTEMDISTRO_DEBUG_BUILD=${{ github.event.inputs.debug_build && '1' || '' }}
 
       - name: Export rootfs tar
         run: |
