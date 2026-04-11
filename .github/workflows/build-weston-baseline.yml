@@ -27,9 +27,7 @@ jobs:
           mkdir -p vendor
 
           # DirectX-Headers
-          curl -sL https://github.com/microsoft/DirectX-Headers/archive/refs/tags/v1.0.tar.gz | tar xz -C vendor
-          mv vendor/DirectX-Headers-1.0 vendor/DirectX-Headers-1.0-tmp
-          mv vendor/DirectX-Headers-1.0-tmp vendor/DirectX-Headers-1.0
+          git clone --depth 1 https://github.com/microsoft/DirectX-Headers.git vendor/DirectX-Headers-1.0
 
           # Mesa
           git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa.git vendor/mesa
