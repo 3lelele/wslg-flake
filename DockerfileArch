@@ -2,16 +2,11 @@
 FROM archlinux:base-devel AS build-env
 RUN echo 'Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist
 
-# Install all the required packages for building. This list is probably
-# longer than necessary.
-RUN echo "== Install Git/CA certificates ==" && \
-    pacman -Sy --noconfirm \
+# Install all the required packages for building.
+RUN pacman -Sy --noconfirm \
         git \
         mesa \
-        directx-headers
-
-#RUN echo "== Install all dependencies ==" && \
-    pacman -S --noconfirm \
+        directx-headers \
         meson \
         libsndfile \
         libice \
