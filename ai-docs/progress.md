@@ -11,31 +11,45 @@ Abandoned our fork's RAIL alignment / alpha debugging approach in favor of qq103
 - wsland: `archive/our-rail-fixes` branch preserves our 49 commits; `master` reset to upstream `working` (`540358f`)
 - wslg-flake: `archive/our-wslg-fixes` branch preserves our 320 commits; `main` reset to upstream `main` (`8fb0147`)
 - Both repos pushed to origin
+- Added GitHub Actions workflow for building VHD via DockerfileArch
+- Fixed two `#RUN` comment bugs in DockerfileArch (build-env and runtime stages)
+- Fixed Arch package names: `xcb` → `libxcb`, removed duplicate `xwayland`
 
-### Current state
+### VHD Build Succeeded, Windows Still Invisible
 
-Both repos are now synced with qq's upstream. The next milestone is to build the VHD and validate that windows are visible on the Windows desktop.
+After building VHD from qq's upstream code and booting with it:
+- **All windows invisible** — same symptom as before (taskbar icon only, no window)
+- Confirmed with: weston-terminal, xeyes, Firefox, IntelliJ IDEA
+- Initially thought IDEA was working, but it was the Windows-native IDEA
 
-### Previous progress (2026-04-09 to 2026-04-10)
+### Root Cause: GfxRedir Not Activated
 
-All previous progress is preserved in `archive/our-rail-fixes` and `archive/our-wslg-fixes` branches. Key findings from that period:
+**GfxRedir (the zero-copy rendering path) is NOT available on this WSL setup:**
+- `/mnt/shared_memory` does not exist — the virtiofs mount point is not created
+- `WSL2_SHARED_MEMORY_MOUNT_POINT` env var is not set
+- Without shared memory, `config_gfxredir()` in wsland sets `use_gfxredir = false`
+- ALL rendering falls back to RDPGFX alpha codec path → same invisible window bug
 
-- Custom WSLGd build confirmed running, `wsland` branch selectable via `WSLG_USE_WSLAND=1`
-- `wsland` successfully starts Wayland + XWayland
-- `weston-terminal` creates RAIL window, maps RDPGFX surface, sends frames, receives acknowledgements
-- Window remains invisible on Windows desktop despite all of the above
-- Single-factor causes ruled out: `RDPGFX_CODECID_ALPHA`, `WS_EX_LAYERED`, title-only updates, `WINDOW_ORDER_FIELD_OWNER`
-- Multiple RAIL window state fixes aligned with `microsoft/weston-mirror` `rdprail.c`
-- Root cause identified (retroactively): missing GfxRedir support meant relying on RDPGFX alpha codec path which has incompatible semantics with msrdc.exe
+The GfxRedir path likely works on qq's machine due to different WSL/Windows version or configuration.
+
+### RDPGFX Path Analysis
+
+Compared wsland's RDPGFX rendering with microsoft/weston-mirror rdprail.c. Found multiple mismatches (see `rdpgfx-invisible-window.md` for full details):
+
+1. **Window show state lifecycle wrong**: wsland doesn't do the required HIDE→SHOW two-step transition
+2. **WindowCreate missing critical fields**: WND_OFFSET, WND_SIZE, WND_RECTS, VISIBILITY, SHOW, TASKBAR_BUTTON all missing
+3. **Window rects use wrong coordinates**: (0,0) origin instead of actual screen position
+4. **TaskbarButton semantics inverted**: top-level windows get 0 instead of 1
+5. **clientAreaHeight missing title bar adjustment**
+6. **Missing MinMaxInfo on show transition**
+7. **HiDefRemoteApp not set in peer settings**
 
 ## Current Blocker
 
-None. The upstream code should resolve the invisible-window issue via GfxRedir. Need to build and validate.
+Same as before: invisible windows when using RDPGFX rendering path. GfxRedir is not available on this WSL version.
 
-## Recommended Next Validation
+## Next Steps
 
-1. Build `system_x64.vhd` using `DockerfileArch`
-2. Boot with the custom system distro
-3. Launch a GUI app and confirm it's visible on the Windows desktop
-4. Launch JetBrains IDEA and confirm it works
-5. Begin IME implementation
+1. **Build baseline VHD using Dockerfile (Azure Linux + weston)** to confirm the environment works with the standard WSLg stack
+2. Fix wsland's RDPGFX path based on the 7 issues identified
+3. Rebuild and validate

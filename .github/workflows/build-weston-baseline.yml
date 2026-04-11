@@ -1,0 +1,71 @@
+name: Build System Distro (Weston Baseline)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-x64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      FREERDP_REPO: https://github.com/microsoft/FreeRDP-mirror.git
+      WESTON_REPO: https://github.com/microsoft/weston-mirror.git
+
+    steps:
+      - name: Checkout wslg-flake
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Prepare vendor sources
+        run: |
+          set -euxo pipefail
+          rm -rf vendor
+          mkdir -p vendor
+
+          # DirectX-Headers
+          curl -sL https://github.com/microsoft/DirectX-Headers/archive/refs/tags/v1.0.tar.gz | tar xz -C vendor
+          mv vendor/DirectX-Headers-1.0 vendor/DirectX-Headers-1.0-tmp
+          mv vendor/DirectX-Headers-1.0-tmp vendor/DirectX-Headers-1.0
+
+          # Mesa
+          git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa.git vendor/mesa
+
+          # FreeRDP - microsoft mirror
+          git clone --branch working ${FREERDP_REPO} vendor/FreeRDP
+
+          # PulseAudio - microsoft mirror
+          git clone --branch working https://github.com/microsoft/pulseaudio-mirror.git vendor/pulseaudio
+          git -C vendor/pulseaudio fetch --tags --force
+
+          # Weston - microsoft mirror
+          git clone --branch working ${WESTON_REPO} vendor/weston
+
+      - name: Build system distro image
+        run: |
+          set -euxo pipefail
+          docker build -f Dockerfile -t system-distro-x64 . \
+            --build-arg WSLG_VERSION="${GITHUB_SHA}" \
+            --build-arg WSLG_ARCH=x86_64
+
+      - name: Export rootfs tar
+        run: |
+          set -euxo pipefail
+          cid="$(docker create system-distro-x64)"
+          trap 'docker rm -f "${cid}"' EXIT
+          docker export "${cid}" > system_x64.tar
+
+      - name: Convert tar to VHD
+        run: |
+          set -euxo pipefail
+          go run github.com/Microsoft/hcsshim/cmd/tar2ext4@latest -vhd -i system_x64.tar -o system_x64.vhd
+
+      - name: Upload VHD artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: system_x64_weston.vhd
+          path: system_x64.vhd
+          if-no-files-found: error
