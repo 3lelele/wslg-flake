@@ -12,9 +12,6 @@ on:
         type: boolean
         required: false
         default: false
-  push:
-    branches:
-      - main
 
 jobs:
   build-x64:
