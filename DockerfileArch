@@ -185,8 +185,7 @@ RUN if [ -z "$SYSTEMDISTRO_DEBUG_BUILD" ] ; then \
 FROM archlinux:base AS runtime
 RUN echo 'Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist
 
-#RUN echo "== Install Core/UI Runtime Dependencies ==" && \
-    pacman -Sy --noconfirm \
+RUN pacman -Sy --noconfirm \
     mesa \
     directx-headers \
     wlroots0.20 \
